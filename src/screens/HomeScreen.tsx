@@ -99,7 +99,7 @@ function HomeScreen({navigation}: any) {
         <View style={styles.actionsRow}>
           <TouchableOpacity
             style={styles.actionButton}
-            onPress={() => navigation.navigate('PolicyList')}>
+            onPress={() => navigation.navigate('AddPolicyDatabase')}>
             <Text style={styles.actionIcon}>📋</Text>
             <Text style={styles.actionText}>Policies</Text>
           </TouchableOpacity>
@@ -129,8 +129,8 @@ function HomeScreen({navigation}: any) {
         {/* Add New Policy Button */}
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => navigation.navigate('AddPolicy')}>
-          <Text style={styles.addButtonText}>+ Add New Policy</Text>
+          onPress={() => navigation.navigate('AddPolicyDatabase')}>
+          <Text style={styles.addButtonText}>+ Manage Policies</Text>
         </TouchableOpacity>
 
         {/* Recent Policies */}
@@ -146,7 +146,7 @@ function HomeScreen({navigation}: any) {
             <TouchableOpacity
               key={policy.id ?? index}
               style={styles.policyCard}
-              onPress={() => navigation.navigate('PolicyList')}>
+              onPress={() => navigation.navigate('AddPolicyDatabase')}>
               <Text style={styles.policyIcon}>{policy.icon}</Text>
               <View style={styles.policyInfo}>
                 <Text style={styles.policyName}>{policy.name}</Text>
