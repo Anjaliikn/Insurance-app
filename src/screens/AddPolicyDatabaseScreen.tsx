@@ -133,7 +133,7 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
           expiry: formExpiry.trim(),
         };
         updated = [...policies, newPolicy];
-        Alert.alert('Saved! 🎉', 'Policy added to offline database.');
+        Alert.alert('Saved! 🎉', 'Policy added to  database.');
       }
 
       await AsyncStorage.setItem('policies', JSON.stringify(updated));
