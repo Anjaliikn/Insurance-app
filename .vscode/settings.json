@@ -1,10 +1,21 @@
 {
-    "java.compile.nullAnalysis.mode": "automatic",
+    "java.compile.nullAnalysis.mode": "disabled",
     "java.import.exclusions": [
         "**/node_modules/**",
+        "**/node_modules/@react-native/**",
+        "**/node_modules/@react-native/gradle-plugin/**",
         "**/android/build/**",
-        "**/build/**"
+        "**/build/**",
+        "**/.gradle/**"
     ],
     "java.configuration.updateBuildConfiguration": "disabled",
-    "java.autobuild.enabled": false
-}
+    "java.autobuild.enabled": false,
+    "java.project.referencedLibraries": [],
+    "java.settings.url": null,
+    "java.jdt.ls.lombokSupport.enabled": false,
+    "java.project.importOnFirstTimeStartup": "disabled",
+    "java.server.launchMode": "LightWeight",
+    "java.trace.server": "off",
+    "java.problems.enabled": false,
+    "extensions.ignoreRecommendations": true
+}

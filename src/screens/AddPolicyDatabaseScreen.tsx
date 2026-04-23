@@ -109,14 +109,14 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
         updated = policies.map(p =>
           p.id === editingPolicy.id
             ? {
-                ...p,
-                name: formName.trim(),
-                type: formType,
-                icon: getIcon(formType),
-                amount: `₹${formAmount}/yr`,
-                coverage: `₹${formCoverage}`,
-                expiry: formExpiry.trim(),
-              }
+              ...p,
+              name: formName.trim(),
+              type: formType,
+              icon: getIcon(formType),
+              amount: `₹${formAmount}/yr`,
+              coverage: `₹${formCoverage}`,
+              expiry: formExpiry.trim(),
+            }
             : p
         );
         Alert.alert('Updated! ✏️', 'Policy updated successfully.');
