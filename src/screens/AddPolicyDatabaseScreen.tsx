@@ -50,6 +50,74 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
   const [formCoverage, setFormCoverage] = useState('');
   const [formExpiry, setFormExpiry] = useState('');
 
+  // ── Date Picker state ──
+  const [datePickerVisible, setDatePickerVisible] = useState(false);
+  // getToday() is called fresh each time so past-date logic is always accurate
+  const getToday = () => new Date();
+  const [calYear, setCalYear] = useState(() => new Date().getFullYear());
+  const [calMonth, setCalMonth] = useState(() => new Date().getMonth()); // 0-indexed
+  const [activeDropdown, setActiveDropdown] = useState<'day' | 'month' | 'year' | null>(null);
+  const [selDay, setSelDay] = useState<number | null>(null);
+  const [selMonth, setSelMonth] = useState<number | null>(null); // 0-indexed
+  const [selYear, setSelYear] = useState<number | null>(null);
+
+  const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'];
+  const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+  function daysInMonth(m: number, y: number) {
+    return new Date(y, m + 1, 0).getDate();
+  }
+
+  function isPastDay(d: number, m: number, y: number) {
+    const now = getToday();
+    const todayMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return new Date(y, m, d) < todayMidnight;
+  }
+
+  function openDatePicker() {
+    const today = getToday();
+    setCalYear(today.getFullYear());
+    setCalMonth(today.getMonth());
+    setSelDay(null); setSelMonth(null); setSelYear(null);
+    setActiveDropdown(null);
+    setDatePickerVisible(true);
+  }
+
+  function confirmDate() {
+    if (!selDay || selMonth === null || !selYear) {
+      Alert.alert('Select Date', 'Please pick a day, month and year.');
+      return;
+    }
+    const label = `${String(selDay).padStart(2, '0')} ${MONTH_SHORT[selMonth]} ${selYear}`;
+    setFormExpiry(label);
+    setDatePickerVisible(false);
+  }
+
+  function calendarDays(): (number | null)[] {
+    const firstDay = new Date(calYear, calMonth, 1).getDay(); // 0=Sun
+    const total = daysInMonth(calMonth, calYear);
+    const cells: (number | null)[] = Array(firstDay).fill(null);
+    for (let d = 1; d <= total; d++) cells.push(d);
+    return cells;
+  }
+
+  // Year chips: current year → +10 years
+  const now0 = getToday();
+  const yearItems = Array.from({ length: 11 }, (_, i) => now0.getFullYear() + i);
+  // Month chips: all 12 months; past months in current year are disabled
+  const monthItems = MONTH_NAMES.map((name, i) => ({ name, i }));
+  // Day chips: all days in selected month/year (fallback to current month/year);
+  // past days are marked disabled but still rendered so the user can see them
+  const _dm = selMonth !== null ? selMonth : now0.getMonth();
+  const _dy = selYear !== null ? selYear : now0.getFullYear();
+  const dayItems = Array.from({ length: daysInMonth(_dm, _dy) }, (_, i) => i + 1);
+  function isMonthDisabled(mi: number) {
+    const n = getToday();
+    return (selYear ?? n.getFullYear()) === n.getFullYear() && mi < n.getMonth();
+  }
+
   // ── Detail view modal state ──
   const [detailModal, setDetailModal] = useState(false);
   const [selectedPolicy, setSelectedPolicy] = useState<Policy | null>(null);
@@ -78,6 +146,7 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
     setFormAmount('');
     setFormCoverage('');
     setFormExpiry('');
+    setSelDay(null); setSelMonth(null); setSelYear(null);
     setModalVisible(true);
   }
 
@@ -133,7 +202,7 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
           expiry: formExpiry.trim(),
         };
         updated = [...policies, newPolicy];
-        Alert.alert('Saved! 🎉', 'Policy added to  database.');
+        Alert.alert('Saved! 🎉', 'Policy added to database.');
       }
 
       await AsyncStorage.setItem('policies', JSON.stringify(updated));
@@ -152,6 +221,7 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
       [
         { text: 'Cancel', style: 'cancel' },
         {
+
           text: 'Delete',
           style: 'destructive',
           onPress: async () => {
@@ -297,83 +367,91 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
          ══════════════════════════════════════════ */}
       <Modal visible={modalVisible} transparent animationType="slide">
         <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={styles.modalOverlay}>
           <View style={styles.formCard}>
-            <Text style={styles.formTitle}>
-              {editingPolicy ? '✏️ Edit Policy' : '➕ Add New Policy'}
-            </Text>
+            <ScrollView
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ paddingBottom: 16 }}>
+              <Text style={styles.formTitle}>
+                {editingPolicy ? '✏️ Edit Policy' : '➕ Add New Policy'}
+              </Text>
 
-            {/* Policy Name */}
-            <Text style={styles.formLabel}>Policy Name</Text>
-            <TextInput
-              style={styles.formInput}
-              placeholder="e.g. Health Insurance"
-              placeholderTextColor="#bbb"
-              value={formName}
-              onChangeText={setFormName}
-            />
+              {/* Policy Name */}
+              <Text style={styles.formLabel}>Policy Name</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="e.g. Health Insurance"
+                placeholderTextColor="#bbb"
+                value={formName}
+                onChangeText={setFormName}
+                returnKeyType="next"
+              />
 
-            {/* Policy Type */}
-            <Text style={styles.formLabel}>Policy Type</Text>
-            <View style={styles.typeRow}>
-              {POLICY_TYPES.map(t => (
+              {/* Policy Type */}
+              <Text style={styles.formLabel}>Policy Type</Text>
+              <View style={styles.typeRow}>
+                {POLICY_TYPES.map(t => (
+                  <TouchableOpacity
+                    key={t.value}
+                    style={[styles.typeChip, formType === t.value && styles.typeChipActive]}
+                    onPress={() => setFormType(t.value)}>
+                    <Text style={[styles.typeChipText, formType === t.value && styles.typeChipTextActive]}>
+                      {t.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Premium */}
+              <Text style={styles.formLabel}>Premium (₹/year)</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="e.g. 5000"
+                placeholderTextColor="#bbb"
+                value={formAmount}
+                onChangeText={setFormAmount}
+                keyboardType="numeric"
+                returnKeyType="next"
+              />
+
+              {/* Coverage */}
+              <Text style={styles.formLabel}>Coverage Amount (₹)</Text>
+              <TextInput
+                style={styles.formInput}
+                placeholder="e.g. 500000"
+                placeholderTextColor="#bbb"
+                value={formCoverage}
+                onChangeText={setFormCoverage}
+                keyboardType="numeric"
+                returnKeyType="done"
+              />
+
+              {/* Expiry */}
+              <Text style={styles.formLabel}>Expiry Date</Text>
+              <TouchableOpacity style={styles.datePickerBtn} onPress={openDatePicker}>
+                <Text style={styles.datePickerBtnIcon}>📅</Text>
+                <Text style={formExpiry ? styles.datePickerBtnText : styles.datePickerBtnPlaceholder}>
+                  {formExpiry || 'Select expiry date'}
+                </Text>
+                <Text style={styles.datePickerBtnChev}>›</Text>
+              </TouchableOpacity>
+
+              {/* Buttons */}
+              <View style={styles.formActions}>
                 <TouchableOpacity
-                  key={t.value}
-                  style={[styles.typeChip, formType === t.value && styles.typeChipActive]}
-                  onPress={() => setFormType(t.value)}>
-                  <Text style={[styles.typeChipText, formType === t.value && styles.typeChipTextActive]}>
-                    {t.label}
+                  style={styles.cancelBtn}
+                  onPress={() => setModalVisible(false)}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={savePolicy}>
+                  <Text style={styles.saveBtnText}>
+                    {editingPolicy ? 'Update' : 'Save'}
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-
-            {/* Premium */}
-            <Text style={styles.formLabel}>Premium (₹/year)</Text>
-            <TextInput
-              style={styles.formInput}
-              placeholder="e.g. 5000"
-              placeholderTextColor="#bbb"
-              value={formAmount}
-              onChangeText={setFormAmount}
-              keyboardType="numeric"
-            />
-
-            {/* Coverage */}
-            <Text style={styles.formLabel}>Coverage Amount (₹)</Text>
-            <TextInput
-              style={styles.formInput}
-              placeholder="e.g. 500000"
-              placeholderTextColor="#bbb"
-              value={formCoverage}
-              onChangeText={setFormCoverage}
-              keyboardType="numeric"
-            />
-
-            {/* Expiry */}
-            <Text style={styles.formLabel}>Expiry Date</Text>
-            <TextInput
-              style={styles.formInput}
-              placeholder="e.g. 31 Dec 2025"
-              placeholderTextColor="#bbb"
-              value={formExpiry}
-              onChangeText={setFormExpiry}
-            />
-
-            {/* Buttons */}
-            <View style={styles.formActions}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setModalVisible(false)}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={savePolicy}>
-                <Text style={styles.saveBtnText}>
-                  {editingPolicy ? 'Update' : 'Save'}
-                </Text>
-              </TouchableOpacity>
-            </View>
+              </View>
+            </ScrollView>
           </View>
         </KeyboardAvoidingView>
       </Modal>
@@ -437,6 +515,170 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
           </View>
         </View>
       </Modal>
+
+      {/* ══ DATE PICKER MODAL ══ */}
+      <Modal visible={datePickerVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.dpCard}>
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+
+              <Text style={styles.dpTitle}>📅 Select Expiry Date</Text>
+
+              {/* ── Three header buttons ── */}
+              <View style={styles.dpDropRow}>
+                <TouchableOpacity
+                  style={[styles.dpTabBtn, activeDropdown === 'day' && styles.dpTabBtnActive]}
+                  onPress={() => setActiveDropdown(activeDropdown === 'day' ? null : 'day')}>
+                  <Text style={styles.dpTabLabel}>Day</Text>
+                  <Text style={[styles.dpTabValue, !selDay && styles.dpTabValueEmpty]}>
+                    {selDay ? String(selDay).padStart(2, '0') : '--'}
+                  </Text>
+                  <Text style={styles.dpTabChev}>{activeDropdown === 'day' ? '▲' : '▼'}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.dpTabBtn, { flex: 1.5 }, activeDropdown === 'month' && styles.dpTabBtnActive]}
+                  onPress={() => setActiveDropdown(activeDropdown === 'month' ? null : 'month')}>
+                  <Text style={styles.dpTabLabel}>Month</Text>
+                  <Text style={[styles.dpTabValue, selMonth === null && styles.dpTabValueEmpty]}>
+                    {selMonth !== null ? MONTH_SHORT[selMonth] : '--'}
+                  </Text>
+                  <Text style={styles.dpTabChev}>{activeDropdown === 'month' ? '▲' : '▼'}</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.dpTabBtn, activeDropdown === 'year' && styles.dpTabBtnActive]}
+                  onPress={() => setActiveDropdown(activeDropdown === 'year' ? null : 'year')}>
+                  <Text style={styles.dpTabLabel}>Year</Text>
+                  <Text style={[styles.dpTabValue, !selYear && styles.dpTabValueEmpty]}>
+                    {selYear ?? '--'}
+                  </Text>
+                  <Text style={styles.dpTabChev}>{activeDropdown === 'year' ? '▲' : '▼'}</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* ── DAY chips (inline, appears in flow) ── */}
+              {activeDropdown === 'day' && (
+                <View style={styles.dpChipGrid}>
+                  {dayItems.map(d => {
+                    const disabled = isPastDay(d, _dm, _dy);
+                    const selected = selDay === d;
+                    return (
+                      <TouchableOpacity
+                        key={d}
+                        disabled={disabled}
+                        onPress={() => { setSelDay(d); setActiveDropdown(null); }}
+                        style={[styles.dpChip, selected && styles.dpChipSel, disabled && styles.dpChipDis]}>
+                        <Text style={[styles.dpChipText, selected && styles.dpChipTextSel, disabled && styles.dpChipTextDis]}>
+                          {String(d).padStart(2, '0')}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* ── MONTH chips ── */}
+              {activeDropdown === 'month' && (
+                <View style={styles.dpChipGrid}>
+                  {monthItems.map(({ name, i }) => {
+                    const disabled = isMonthDisabled(i);
+                    const selected = selMonth === i;
+                    return (
+                      <TouchableOpacity
+                        key={i}
+                        disabled={disabled}
+                        onPress={() => { setSelMonth(i); setCalMonth(i); setSelDay(null); setActiveDropdown(null); }}
+                        style={[styles.dpChip, { minWidth: '30%' }, selected && styles.dpChipSel, disabled && styles.dpChipDis]}>
+                        <Text style={[styles.dpChipText, selected && styles.dpChipTextSel, disabled && styles.dpChipTextDis]}>
+                          {name}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* ── YEAR chips ── */}
+              {activeDropdown === 'year' && (
+                <View style={styles.dpChipGrid}>
+                  {yearItems.map(y => {
+                    const selected = selYear === y;
+                    return (
+                      <TouchableOpacity
+                        key={y}
+                        onPress={() => { setSelYear(y); setCalYear(y); setSelDay(null); setActiveDropdown(null); }}
+                        style={[styles.dpChip, selected && styles.dpChipSel]}>
+                        <Text style={[styles.dpChipText, selected && styles.dpChipTextSel]}>{y}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
+
+              {/* ── Calendar navigation ── */}
+              <View style={styles.calNav}>
+                <TouchableOpacity onPress={() => {
+                  let m = calMonth - 1, y = calYear;
+                  if (m < 0) { m = 11; y--; }
+                  const n = getToday();
+                  if (y > n.getFullYear() || (y === n.getFullYear() && m >= n.getMonth())) {
+                    setCalMonth(m); setCalYear(y);
+                  }
+                }}>
+                  <Text style={styles.calNavArrow}>‹</Text>
+                </TouchableOpacity>
+                <Text style={styles.calNavTitle}>{MONTH_NAMES[calMonth]} {calYear}</Text>
+                <TouchableOpacity onPress={() => {
+                  let m = calMonth + 1, y = calYear;
+                  if (m > 11) { m = 0; y++; }
+                  setCalMonth(m); setCalYear(y);
+                }}>
+                  <Text style={styles.calNavArrow}>›</Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* Week headers */}
+              <View style={styles.calWeekRow}>
+                {['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'].map(d => (
+                  <Text key={d} style={styles.calWeekDay}>{d}</Text>
+                ))}
+              </View>
+
+              {/* Day cells */}
+              <View style={styles.calGrid}>
+                {calendarDays().map((d, idx) => {
+                  const past = d !== null && isPastDay(d, calMonth, calYear);
+                  const isSel = d !== null && d === selDay && calMonth === selMonth && calYear === selYear;
+                  return (
+                    <TouchableOpacity
+                      key={idx}
+                      disabled={d === null || past}
+                      onPress={() => {
+                        if (d) { setSelDay(d); setSelMonth(calMonth); setSelYear(calYear); }
+                      }}
+                      style={[styles.calCell, isSel && styles.calCellSel, (d === null || past) && styles.calCellDisabled]}>
+                      <Text style={[styles.calCellText, isSel && styles.calCellTextSel, (d === null || past) && styles.calCellTextDisabled]}>
+                        {d ?? ''}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Confirm / Cancel */}
+              <View style={styles.formActions}>
+                <TouchableOpacity style={styles.cancelBtn} onPress={() => setDatePickerVisible(false)}>
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={confirmDate}>
+                  <Text style={styles.saveBtnText}>Confirm Date</Text>
+                </TouchableOpacity>
+              </View>
+
+            </ScrollView>
+          </View>
+        </View>
 
     </View>
   );
@@ -546,7 +788,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
-    paddingBottom: 34,
+    paddingBottom: 10,
+    maxHeight: '90%',
   },
   formTitle: {
     fontSize: 20,
@@ -642,6 +885,63 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   closeDetailBtnText: { color: '#fff', fontSize: 15, fontWeight: 'bold' },
+
+  // ── Date Picker Trigger ──
+  datePickerBtn: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#f5f5f5', borderWidth: 1, borderColor: '#e0e0e0',
+    borderRadius: 10, padding: 12,
+  },
+  datePickerBtnIcon: { fontSize: 18, marginRight: 8 },
+  datePickerBtnText: { flex: 1, fontSize: 15, color: '#333' },
+  datePickerBtnPlaceholder: { flex: 1, fontSize: 15, color: '#bbb' },
+  datePickerBtnChev: { fontSize: 20, color: '#999' },
+
+  // ── Date Picker Modal ──
+  dpCard: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 20, paddingBottom: 30, maxHeight: '92%',
+  },
+  dpTitle: { fontSize: 18, fontWeight: 'bold', color: '#1a237e', textAlign: 'center', marginBottom: 14 },
+  dpDropRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  // Tab buttons (Day / Month / Year)
+  dpTabBtn: {
+    flex: 1, alignItems: 'center', paddingVertical: 10, paddingHorizontal: 6,
+    borderWidth: 1.5, borderColor: '#e0e0e0', borderRadius: 12, backgroundColor: '#f7f7fb',
+  },
+  dpTabBtnActive: { borderColor: '#1a237e', backgroundColor: '#e8eaf6' },
+  dpTabLabel: { fontSize: 10, color: '#999', marginBottom: 2 },
+  dpTabValue: { fontSize: 18, fontWeight: '700', color: '#1a237e' },
+  dpTabValueEmpty: { color: '#bbb' },
+  dpTabChev: { fontSize: 10, color: '#aaa', marginTop: 2 },
+  // Chip grid (inline, no absolute position)
+  dpChipGrid: {
+    flexDirection: 'row', flexWrap: 'wrap', gap: 6,
+    backgroundColor: '#f0f2ff', borderRadius: 12, padding: 10, marginBottom: 12,
+  },
+  dpChip: {
+    paddingVertical: 7, paddingHorizontal: 12,
+    borderRadius: 20, borderWidth: 1, borderColor: '#c5cae9', backgroundColor: '#fff',
+  },
+  dpChipSel: { backgroundColor: '#1a237e', borderColor: '#1a237e' },
+  dpChipDis: { opacity: 0.35 },
+  dpChipText: { fontSize: 14, color: '#333' },
+  dpChipTextSel: { color: '#fff', fontWeight: 'bold' },
+  dpChipTextDis: { color: '#bbb' },
+
+  // ── Calendar ──
+  calNav: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10, marginTop: 4 },
+  calNavArrow: { fontSize: 28, color: '#1a237e', paddingHorizontal: 10 },
+  calNavTitle: { fontSize: 15, fontWeight: 'bold', color: '#1a237e' },
+  calWeekRow: { flexDirection: 'row', marginBottom: 4 },
+  calWeekDay: { flex: 1, textAlign: 'center', fontSize: 11, fontWeight: '700', color: '#888' },
+  calGrid: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 16 },
+  calCell: { width: '14.28%', aspectRatio: 1, alignItems: 'center', justifyContent: 'center', borderRadius: 100 },
+  calCellSel: { backgroundColor: '#1a237e' },
+  calCellDisabled: { opacity: 0.25 },
+  calCellText: { fontSize: 13, color: '#222' },
+  calCellTextSel: { color: '#fff', fontWeight: 'bold' },
+  calCellTextDisabled: { color: '#bbb' },
 });
 
 export default AddPolicyDatabaseScreen;
