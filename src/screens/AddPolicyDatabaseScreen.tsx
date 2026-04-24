@@ -679,6 +679,7 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
             </ScrollView>
           </View>
         </View>
+      </Modal>
 
     </View>
   );
