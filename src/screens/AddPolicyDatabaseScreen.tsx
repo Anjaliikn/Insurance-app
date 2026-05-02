@@ -40,6 +40,7 @@ function getIcon(type: string) {
 function AddPolicyDatabaseScreen({ navigation }: any) {
   const [policies, setPolicies] = useState<Policy[]>([]);
   const [search, setSearch] = useState('');
+  const [userEmail, setUserEmail] = useState('');
 
   // ── Add/Edit modal state ──
   const [modalVisible, setModalVisible] = useState(false);
@@ -125,13 +126,20 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
   // Reload every time the screen gains focus
   useFocusEffect(
     useCallback(() => {
-      loadPolicies();
+      async function init() {
+        const email = await AsyncStorage.getItem('userEmail');
+        if (email) {
+          setUserEmail(email);
+          loadPoliciesForUser(email);
+        }
+      }
+      init();
     }, [])
   );
 
-  async function loadPolicies() {
+  async function loadPoliciesForUser(email: string) {
     try {
-      const data = await AsyncStorage.getItem('policies');
+      const data = await AsyncStorage.getItem(`policies_${email}`);
       setPolicies(data ? JSON.parse(data) : []);
     } catch {
       Alert.alert('Error', 'Could not load policies.');
@@ -205,7 +213,7 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
         Alert.alert('Saved! 🎉', 'Policy added to database.');
       }
 
-      await AsyncStorage.setItem('policies', JSON.stringify(updated));
+      await AsyncStorage.setItem(`policies_${userEmail}`, JSON.stringify(updated));
       setPolicies(updated);
       setModalVisible(false);
     } catch {
@@ -227,7 +235,7 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
           onPress: async () => {
             try {
               const updated = policies.filter(p => p.id !== policy.id);
-              await AsyncStorage.setItem('policies', JSON.stringify(updated));
+              await AsyncStorage.setItem(`policies_${userEmail}`, JSON.stringify(updated));
               setPolicies(updated);
               setDetailModal(false);
             } catch {
@@ -311,7 +319,7 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
       </View>
 
       {/* ── Policy Rows ── */}
-      <ScrollView style={styles.list} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.list} showsVerticalScrollIndicator={false} overScrollMode="never" removeClippedSubviews={true} nestedScrollEnabled={true}>
         {filtered.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyIcon}>🗂️</Text>
@@ -373,6 +381,8 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
             <ScrollView
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
+              overScrollMode="never"
+              nestedScrollEnabled={true}
               contentContainerStyle={{ paddingBottom: 16 }}>
               <Text style={styles.formTitle}>
                 {editingPolicy ? '✏️ Edit Policy' : '➕ Add New Policy'}
@@ -520,7 +530,7 @@ function AddPolicyDatabaseScreen({ navigation }: any) {
       <Modal visible={datePickerVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.dpCard}>
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" overScrollMode="never" nestedScrollEnabled={true}>
 
               <Text style={styles.dpTitle}>📅 Select Expiry Date</Text>
 

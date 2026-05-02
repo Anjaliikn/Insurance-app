@@ -8,7 +8,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -18,7 +17,7 @@ function LoginScreen({ navigation }: any) {
   const [showPassword, setShowPassword] = useState(false);
   const [emailError, setEmailError] = useState('');
   const [passwordError, setPasswordError] = useState('');
-  const [showPasswordHint, setShowPasswordHint] = useState(false);
+  const [loginError, setLoginError] = useState('');
 
   // Email validation
   function validateEmail(text: string) {
@@ -52,28 +51,7 @@ function LoginScreen({ navigation }: any) {
     }
   }
 
-  // Check all password requirements
-  const requirements = [
-    {
-      label: 'At least 8 characters',
-      met: password.length >= 8,
-    },
-    {
-      label: 'One uppercase letter (A-Z)',
-      met: /[A-Z]/.test(password),
-    },
-    {
-      label: 'One number (0-9)',
-      met: /[0-9]/.test(password),
-    },
-    {
-      label: 'One special character (!@#$%^&*)',
-      met: /[!@#$%^&*]/.test(password),
-    },
-  ];
 
-  // Check if all requirements are met
-  const allRequirementsMet = requirements.every(r => r.met);
 
   function isFormValid() {
     return (
@@ -85,14 +63,27 @@ function LoginScreen({ navigation }: any) {
   }
 
   async function handleSubmit() {
+    setLoginError('');
     validateEmail(email);
     validatePassword(password);
     if (!isFormValid()) return;
     try {
+      const stored = await AsyncStorage.getItem(`user_${email}`);
+      if (!stored) {
+        setLoginError('No account found. Please sign up first.');
+        return;
+      }
+      const userData = JSON.parse(stored);
+      if (userData.password !== password) {
+        setLoginError('Incorrect password. Please try again.');
+        return;
+      }
       await AsyncStorage.setItem('userEmail', email);
+      await AsyncStorage.setItem('userName', userData.name || '');
       navigation.navigate('Home');
     } catch (error) {
       console.log('Error:', error);
+      setLoginError('Something went wrong. Please try again.');
     }
   }
 
@@ -100,7 +91,11 @@ function LoginScreen({ navigation }: any) {
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+        overScrollMode="never"
+        showsVerticalScrollIndicator={false}>
         <View style={styles.card}>
 
           {/* Title */}
@@ -142,8 +137,6 @@ function LoginScreen({ navigation }: any) {
                 value={password}
                 onChangeText={validatePassword}
                 secureTextEntry={!showPassword}
-                // Show popup when user focuses on password field
-                onFocus={() => setShowPasswordHint(true)}
               />
               {/* Show/Hide toggle */}
               <TouchableOpacity
@@ -162,6 +155,13 @@ function LoginScreen({ navigation }: any) {
               <Text style={styles.successText}>✅ Strong password</Text>
             ) : null}
           </View>
+
+          {/* Login Error */}
+          {loginError !== '' && (
+            <View style={styles.loginErrorBox}>
+              <Text style={styles.loginErrorText}>❌ {loginError}</Text>
+            </View>
+          )}
 
           {/* Login Button */}
           <TouchableOpacity
@@ -182,63 +182,6 @@ function LoginScreen({ navigation }: any) {
 
         </View>
       </ScrollView>
-
-      {/* Password Requirements Popup */}
-      <Modal
-        visible={showPasswordHint}
-        transparent={true}
-        animationType="fade">
-        <TouchableOpacity
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowPasswordHint(false)}>
-          <View style={styles.hintCard}>
-
-            {/* Popup Header */}
-            <View style={styles.hintHeader}>
-              <Text style={styles.hintTitle}>🔐 Password Requirements</Text>
-              <TouchableOpacity onPress={() => setShowPasswordHint(false)}>
-                <Text style={styles.hintClose}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Requirements List */}
-            {requirements.map((req, index) => (
-              <View key={index} style={styles.requirementRow}>
-                <Text style={[
-                  styles.requirementIcon,
-                  req.met ? styles.metIcon : styles.unmetIcon,
-                ]}>
-                  {req.met ? '✅' : '○'}
-                </Text>
-                <Text style={[
-                  styles.requirementText,
-                  req.met ? styles.requirementMet : styles.requirementUnmet,
-                ]}>
-                  {req.label}
-                </Text>
-              </View>
-            ))}
-
-            {/* All requirements met message */}
-            {allRequirementsMet && (
-              <View style={styles.allMetContainer}>
-                <Text style={styles.allMetText}>
-                  🎉 Password is strong!
-                </Text>
-              </View>
-            )}
-
-            {/* Close button */}
-            <TouchableOpacity
-              style={styles.hintButton}
-              onPress={() => setShowPasswordHint(false)}>
-              <Text style={styles.hintButtonText}>Got it!</Text>
-            </TouchableOpacity>
-
-          </View>
-        </TouchableOpacity>
-      </Modal>
 
     </KeyboardAvoidingView>
   );
@@ -338,87 +281,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 14,
   },
-
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 30,
-  },
-  hintCard: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 25,
-    width: '100%',
-    elevation: 10,
-  },
-  hintHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  hintTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1a237e',
-  },
-  hintClose: {
-    fontSize: 18,
-    color: '#999',
-  },
-  requirementRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  loginErrorBox: {
+    backgroundColor: '#ffebee',
+    borderRadius: 10,
+    padding: 12,
     marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#ef9a9a',
   },
-  requirementIcon: {
-    fontSize: 16,
-    marginRight: 10,
+  loginErrorText: {
+    color: '#c62828',
+    fontSize: 13,
+    textAlign: 'center',
+    fontWeight: '600',
   },
-  metIcon: {
-    color: '#2e7d32',
-  },
-  unmetIcon: {
-    color: '#999',
-  },
-  requirementText: {
-    fontSize: 14,
-  },
-  requirementMet: {
-    color: '#2e7d32',
-    fontWeight: 'bold',
-  },
-  requirementUnmet: {
-    color: '#999',
-  },
-  allMetContainer: {
-    backgroundColor: '#e8f5e9',
-    borderRadius: 10,
-    padding: 12,
-    alignItems: 'center',
-    marginTop: 10,
-    marginBottom: 5,
-  },
-  allMetText: {
-    color: '#2e7d32',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  hintButton: {
-    backgroundColor: '#1a237e',
-    padding: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 15,
-  },
-  hintButtonText: {
-    color: '#ffffff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+
 });
 
 export default LoginScreen;

@@ -10,6 +10,7 @@ import {
   ScrollView,
   Modal,
   Animated,
+  Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -142,6 +143,15 @@ function SignUpScreen({ navigation }: any) {
     if (!isFormValid()) return;
 
     try {
+      const existing = await AsyncStorage.getItem(`user_${email}`);
+      if (existing) {
+        Alert.alert('Account Exists', 'An account with this email already exists. Please log in.');
+        return;
+      }
+      await AsyncStorage.setItem(`user_${email}`, JSON.stringify({
+        name: fullName.trim(),
+        password: password,
+      }));
       await AsyncStorage.setItem('userEmail', email);
       await AsyncStorage.setItem('userName', fullName.trim());
       setSuccessVisible(true);
@@ -156,7 +166,9 @@ function SignUpScreen({ navigation }: any) {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled">
+        keyboardShouldPersistTaps="handled"
+        overScrollMode="never"
+        showsVerticalScrollIndicator={false}>
         {/* Header Banner */}
         <View style={styles.header}>
           <Text style={styles.headerIcon}>🛡️</Text>
